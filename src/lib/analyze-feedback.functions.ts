@@ -57,20 +57,35 @@ For the input, identify each distinct piece of feedback (one per line, paragraph
 - sentiment: positive | neutral | negative
 - summary: one-sentence rephrasing
 
-Also produce an overallSummary (2-3 sentences) describing key themes.`;
+Also produce an overallSummary (2-3 sentences) describing key themes.
 
+Respond with ONLY a JSON object matching this exact shape (no prose, no markdown fences):
+{"overallSummary": string, "items": [{"excerpt": string, "urgency": "high"|"medium"|"low", "type": "bug report"|"feature request"|"complaint"|"praise"|"question", "actionable": boolean, "confidence": number, "category": string, "sentiment": "positive"|"neutral"|"negative", "summary": string}]}`;
+
+    const { text } = await generateText({
+      model: gateway("google/gemini-3-flash-preview"),
+      system,
+      prompt: data.text,
+    });
+
+    const cleaned = extractJson(text);
     try {
-      const { output } = await generateText({
-        model: gateway("google/gemini-3-flash-preview"),
-        system,
-        prompt: data.text,
-        output: Output.object({ schema: ResultSchema }),
-      });
-      return output;
+      return ResultSchema.parse(JSON.parse(cleaned));
     } catch (err) {
-      if (NoObjectGeneratedError.isInstance(err)) {
-        throw new Error("The model returned malformed output. Please try again.");
-      }
-      throw err;
+      console.error("Failed to parse model output:", err, "\nRaw:", text);
+      throw new Error("The model returned malformed output. Please try again.");
     }
   });
+
+function extractJson(raw: string): string {
+  let s = raw.trim();
+  s = s.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+  if (s.startsWith("{") || s.startsWith("[")) return s;
+  const objStart = s.indexOf("{");
+  const arrStart = s.indexOf("[");
+  const isArr = arrStart !== -1 && (objStart === -1 || arrStart < objStart);
+  const start = isArr ? arrStart : objStart;
+  const end = isArr ? s.lastIndexOf("]") : s.lastIndexOf("}");
+  if (start !== -1 && end > start) return s.slice(start, end + 1);
+  return s;
+}
