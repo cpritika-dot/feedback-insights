@@ -60,13 +60,13 @@ For the input, identify each distinct piece of feedback (one per line, paragraph
 Also produce an overallSummary (2-3 sentences) describing key themes.`;
 
     try {
-      const { experimental_output } = await generateText({
+      const { output } = await generateText({
         model: gateway("google/gemini-3-flash-preview"),
         system,
         prompt: data.text,
-        experimental_output: Output.object({ schema: ResultSchema }),
+        output: Output.object({ schema: ResultSchema }),
       });
-      return experimental_output;
+      return output;
     } catch (err) {
       if (NoObjectGeneratedError.isInstance(err)) {
         throw new Error("The model returned malformed output. Please try again.");
